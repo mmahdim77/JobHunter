@@ -1,0 +1,91 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String?
+  googleId      String?   @unique
+  plan          String    @default("FREE")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  openaiApiKey  String?
+  grokApiKey    String?
+  deepseekApiKey String?
+  geminiApiKey  String?
+  resumes       Resume[]
+  jobPosts      JobPost[]
+  llmSettings   LLMSettings?
+  coverLetters  CoverLetter[]
+}
+
+model Resume {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  format    String
+  isPrimary Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model JobPost {
+  id                String   @id @default(cuid())
+  title             String
+  company           String
+  companyUrl        String?
+  jobUrl            String
+  country           String?
+  city              String?
+  state             String?
+  isRemote          Boolean  @default(false)
+  description       String?
+  jobType           String?
+  salaryInterval    String?
+  salaryMinAmount   Float?
+  salaryMaxAmount   Float?
+  salaryCurrency    String?
+  datePosted        DateTime
+  companyIndustry   String?
+  companyLogo       String?
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+  coverLetters      CoverLetter[]
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model LLMSettings {
+  id        String   @id @default(cuid())
+  provider  String   @default("openai")
+  model     String   @default("gpt-4-turbo-preview")
+  apiKey    String?
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CoverLetter {
+  id        String   @id @default(cuid())
+  filePath  String
+  fileName  String
+  userId    String
+  jobId     String
+  user      User     @relation(fields: [userId], references: [id])
+  job       JobPost  @relation(fields: [jobId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+} 
