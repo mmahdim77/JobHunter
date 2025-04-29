@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import fs from 'fs';
 import path from 'path';
-import { CoverLetterGenerator } from '../../scripts/cover_letter_generator';
+import { spawn } from 'child_process';
 
 export const generateCoverLetter = async (req: Request, res: Response) => {
   try {
@@ -18,7 +18,6 @@ export const generateCoverLetter = async (req: Request, res: Response) => {
     const job = await prisma.jobPost.findUnique({
       where: { id: jobId }
     });
-
     if (!job) {
       res.status(404).json({ error: 'Job not found' });
       return;
@@ -26,73 +25,86 @@ export const generateCoverLetter = async (req: Request, res: Response) => {
 
     // Get the primary resume
     const primaryResume = await prisma.resume.findFirst({
-      where: {
-        userId,
-        isPrimary: true
-      }
+      where: { userId, isPrimary: true }
     });
-
     if (!primaryResume || !primaryResume.content) {
       res.status(404).json({ error: 'No primary resume found or resume has no content' });
       return;
     }
 
-    // Get user's API keys
+    // Get user's LLM settings
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      include: {
-        llmSettings: true
-      }
+      include: { llmSettings: true }
     });
-
     if (!user || !user.llmSettings) {
       res.status(404).json({ error: 'User or LLM settings not found' });
       return;
     }
 
-    // Create temporary directory for resume content
+    // Write resume content to a temp file
     const tempDir = path.join(process.cwd(), 'data', 'temp');
     fs.mkdirSync(tempDir, { recursive: true });
     const tempResumePath = path.join(tempDir, `resume_${Date.now()}.${primaryResume.format}`);
+    fs.writeFileSync(tempResumePath, primaryResume.content);
 
-    // Write resume content to temporary file
-    if (primaryResume.content) {
-      fs.writeFileSync(tempResumePath, primaryResume.content);
-    }
+    // Prepare job data as JSON string
+    const jobData = {
+      title: job.title,
+      company: job.company,
+      description: job.description || '',
+      jobType: job.jobType || '',
+      companyIndustry: job.companyIndustry || ''
+    };
+    const jobDataStr = JSON.stringify(jobData);
 
-    // Initialize cover letter generator
-    const generator = new CoverLetterGenerator();
+    // Prepare arguments for the Python script
+    const scriptPath = path.join(process.cwd(), 'scripts', 'cover_letter_generator.py');
+    const outputDir = path.join(process.cwd(), 'uploads', 'cover_letters');
+    fs.mkdirSync(outputDir, { recursive: true });
 
-    // Generate cover letter
-    const { filePath, fileName } = await generator.generateTailoredCoverLetter(
-      {
-        title: job.title,
-        company: job.company,
-        description: job.description || '',
-        jobType: job.jobType || '',
-        companyIndustry: job.companyIndustry || ''
-      },
-      tempResumePath,
-      user.llmSettings.provider,
-      user.llmSettings.apiKey || undefined
-    );
+    const args = [
+      scriptPath,
+      '--resume_path', tempResumePath,
+      '--job_data', jobDataStr,
+      '--provider', user.llmSettings.provider,
+      '--api_key', user.llmSettings.apiKey || '',
+      '--output_dir', outputDir
+    ];
 
-    // Clean up temporary file
-    fs.unlinkSync(tempResumePath);
+    const pythonProcess = spawn('python3', args);
+    let stdout = '';
+    let stderr = '';
 
-    // Save cover letter to database
-    const coverLetter = await prisma.coverLetter.create({
-      data: {
-        filePath,
-        fileName,
-        userId,
-        jobId
-      }
+    pythonProcess.stdout.on('data', (data) => {
+      stdout += data.toString();
     });
-
-    res.json({
-      success: true,
-      coverLetter
+    pythonProcess.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+    pythonProcess.on('close', async (code) => {
+      fs.unlinkSync(tempResumePath);
+      if (code !== 0) {
+        console.error('Python script error:', stderr);
+        res.status(500).json({ error: 'Python script failed', details: stderr });
+        return;
+      }
+      try {
+        const result = JSON.parse(stdout);
+        // Save the cover letter record in the database
+        const coverLetter = await prisma.coverLetter.create({
+          data: {
+            filePath: result.cover_letter_path,
+            fileName: path.basename(result.cover_letter_path),
+            userId,
+            jobId
+          }
+        });
+        res.json({ success: true, coverLetter });
+      } catch (err) {
+        console.error('Error parsing Python output:', err, stdout);
+        res.status(500).json({ error: 'Failed to parse Python output', details: stdout });
+      }
     });
   } catch (error) {
     console.error('Error generating cover letter:', error);

@@ -5,10 +5,6 @@ import path from 'path';
 import { uploadFile, deleteFile } from '../utils/cloudinary';
 import { ResumeTailor } from '../../scripts/resume_tailor';
 
-interface MulterRequest extends Request {
-  file?: Express.Multer.File;
-}
-
 export const createResume = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
