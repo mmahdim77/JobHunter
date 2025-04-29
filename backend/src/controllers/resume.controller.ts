@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import type { User, Resume, JobPost } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
 import { uploadFile, deleteFile } from '../utils/cloudinary';
