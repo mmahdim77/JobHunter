@@ -3,7 +3,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -31,17 +30,15 @@ model User {
 }
 
 model Resume {
-  id                String   @id @default(cuid())
-  fileName          String
-  filePath          String
-  cloudinaryPublicId String?
-  content           String?
-  format            String   @default("latex")
-  isPrimary         Boolean  @default(false)
-  userId            String
-  user              User     @relation(fields: [userId], references: [id])
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  format    String
+  isPrimary Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model JobPost {
