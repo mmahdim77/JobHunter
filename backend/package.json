@@ -14,7 +14,7 @@
     "prebuild": "npm run clean"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
+    "@prisma/client": "^6.6.0",
     "@types/multer": "^1.4.12",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.6.0",
@@ -35,7 +35,7 @@
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.11.16",
     "nodemon": "^3.0.3",
-    "prisma": "^5.10.0",
+    "prisma": "^6.6.0",
     "ts-node": "^10.9.2"
   }
 }
