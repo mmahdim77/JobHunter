@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { MulterRequest } from '../types/multer';
 import { ResumeTailor } from '../../scripts/resume_tailor';
+import { uploadFile, deleteFile } from '../utils/cloudinary';
 
 export const createResume = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -121,32 +122,35 @@ export const updateResume = async (req: Request, res: Response): Promise<void> =
 
 export const deleteResume = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
     const { id } = req.params;
+    const userId = req.user?.id;
 
-    // Check if resume exists and belongs to user
-    const existingResume = await prisma.resume.findFirst({
-      where: { id, userId }
+    const resume = await prisma.resume.findUnique({
+      where: { id },
     });
 
-    if (!existingResume) {
-      res.status(404).json({ error: 'Resume not found' });
-      return;
+    if (!resume) {
+      return res.status(404).json({ error: 'Resume not found' });
     }
 
+    if (resume.userId !== userId) {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+
+    // Delete from Cloudinary if public_id exists
+    if (resume.cloudinaryPublicId) {
+      await deleteFile(resume.cloudinaryPublicId);
+    }
+
+    // Delete from database
     await prisma.resume.delete({
-      where: { id }
+      where: { id },
     });
 
-    res.status(204).send();
+    res.json({ message: 'Resume deleted successfully' });
   } catch (error) {
     console.error('Error deleting resume:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Failed to delete resume' });
   }
 };
 
@@ -189,36 +193,42 @@ export const setPrimaryResume = async (req: Request, res: Response): Promise<voi
   }
 };
 
-export const uploadResume = async (req: MulterRequest, res: Response): Promise<void> => {
+export const uploadResume = async (req: Request, res: Response): Promise<void> => {
   try {
     if (!req.file) {
-      res.status(400).json({ error: 'No file uploaded' });
-      return;
+      return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const userId = req.user?.id;
     if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const filePath = req.file.path;
-    const originalName = req.file.originalname;
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    // Upload file to Cloudinary
+    const result = await uploadFile(req.file, 'resumes');
 
-    // Create resume record
+    // Save resume information to database
     const resume = await prisma.resume.create({
       data: {
-        title: originalName,
-        content: fileContent,
-        format: path.extname(originalName).toLowerCase() === '.tex' ? 'latex' : 'text',
-        isPrimary: false,
-        userId: userId
-      }
+        fileName: req.file.originalname,
+        filePath: result.url,
+        cloudinaryPublicId: result.public_id,
+        userId: userId,
+        isPrimary: false, // Set to true if it's the user's first resume
+      },
     });
 
-    // Clean up the uploaded file
-    fs.unlinkSync(filePath);
+    // If this is the user's first resume, set it as primary
+    const userResumes = await prisma.resume.findMany({
+      where: { userId },
+    });
+
+    if (userResumes.length === 1) {
+      await prisma.resume.update({
+        where: { id: resume.id },
+        data: { isPrimary: true },
+      });
+    }
 
     res.status(201).json(resume);
   } catch (error) {
