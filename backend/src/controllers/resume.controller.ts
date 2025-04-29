@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import fs from 'fs';
 import path from 'path';
-import { MulterRequest } from '../types/multer';
-import { ResumeTailor } from '../../scripts/resume_tailor';
 import { uploadFile, deleteFile } from '../utils/cloudinary';
+import { ResumeTailor } from '../../scripts/resume_tailor';
 
-export const createResume = async (req: Request, res: Response): Promise<void> => {
+export const createResume = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -14,9 +14,9 @@ export const createResume = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
-    const { title, content, format, isPrimary } = req.body;
+    const { content, format, isPrimary } = req.body;
 
-    if (!title || !content || !format) {
+    if (!content || !format) {
       res.status(400).json({ error: 'Missing required fields' });
       return;
     }
@@ -36,10 +36,11 @@ export const createResume = async (req: Request, res: Response): Promise<void> =
 
     const resume = await prisma.resume.create({
       data: {
-        title,
+        fileName: `resume_${Date.now()}.${format}`,
+        filePath: '',
         content,
         format,
-        isPrimary,
+        isPrimary: isPrimary || false,
         userId
       }
     });
@@ -51,7 +52,7 @@ export const createResume = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const getResumes = async (req: Request, res: Response): Promise<void> => {
+export const getResumes = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -74,7 +75,7 @@ export const getResumes = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-export const updateResume = async (req: Request, res: Response): Promise<void> => {
+export const updateResume = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     if (!userId) {
@@ -83,7 +84,7 @@ export const updateResume = async (req: Request, res: Response): Promise<void> =
     }
 
     const { id } = req.params;
-    const { title, content, format, isPrimary } = req.body;
+    const { content, format, isPrimary } = req.body;
 
     // Check if resume exists and belongs to user
     const existingResume = await prisma.resume.findFirst({
@@ -106,7 +107,6 @@ export const updateResume = async (req: Request, res: Response): Promise<void> =
     const updatedResume = await prisma.resume.update({
       where: { id },
       data: {
-        title,
         content,
         format,
         isPrimary
@@ -120,7 +120,7 @@ export const updateResume = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const deleteResume = async (req: Request, res: Response): Promise<void> => {
+export const deleteResume = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
@@ -130,11 +130,13 @@ export const deleteResume = async (req: Request, res: Response): Promise<void> =
     });
 
     if (!resume) {
-      return res.status(404).json({ error: 'Resume not found' });
+      res.status(404).json({ error: 'Resume not found' });
+      return;
     }
 
     if (resume.userId !== userId) {
-      return res.status(403).json({ error: 'Not authorized' });
+      res.status(403).json({ error: 'Not authorized' });
+      return;
     }
 
     // Delete from Cloudinary if public_id exists
@@ -154,54 +156,17 @@ export const deleteResume = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const setPrimaryResume = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    const { id } = req.params;
-
-    // Check if resume exists and belongs to user
-    const existingResume = await prisma.resume.findFirst({
-      where: { id, userId }
-    });
-
-    if (!existingResume) {
-      res.status(404).json({ error: 'Resume not found' });
-      return;
-    }
-
-    // Unset any existing primary resume
-    await prisma.resume.updateMany({
-      where: { userId, isPrimary: true },
-      data: { isPrimary: false }
-    });
-
-    // Set the new primary resume
-    const updatedResume = await prisma.resume.update({
-      where: { id },
-      data: { isPrimary: true }
-    });
-
-    res.json(updatedResume);
-  } catch (error) {
-    console.error('Error setting primary resume:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-export const uploadResume = async (req: Request, res: Response): Promise<void> => {
+export const uploadResume = async (req: Request, res: Response) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded' });
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
     }
 
     const userId = req.user?.id;
     if (!userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
     }
 
     // Upload file to Cloudinary
@@ -214,8 +179,10 @@ export const uploadResume = async (req: Request, res: Response): Promise<void> =
         filePath: result.url,
         cloudinaryPublicId: result.public_id,
         userId: userId,
-        isPrimary: false, // Set to true if it's the user's first resume
-      },
+        isPrimary: false,
+        format: 'latex',
+        content: '' // Initialize with empty content
+      }
     });
 
     // If this is the user's first resume, set it as primary
@@ -237,7 +204,7 @@ export const uploadResume = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-export const generateTailoredResume = async (req: Request, res: Response): Promise<void> => {
+export const generateTailoredResume = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
     const jobId = req.params.jobId;
@@ -255,8 +222,8 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
       }
     });
 
-    if (!primaryResume) {
-      res.status(404).json({ error: 'No primary resume found' });
+    if (!primaryResume || !primaryResume.content) {
+      res.status(404).json({ error: 'No primary resume found or resume has no content' });
       return;
     }
 
@@ -272,13 +239,7 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
 
     // Get user's API keys
     const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        openaiApiKey: true,
-        grokApiKey: true,
-        deepseekApiKey: true,
-        geminiApiKey: true
-      }
+      where: { id: userId }
     });
 
     if (!user) {
@@ -296,9 +257,9 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
     const jobData = {
       title: job.title,
       company: job.company,
-      description: job.description,
-      jobType: job.jobType,
-      companyIndustry: job.companyIndustry
+      description: job.description || '',
+      jobType: job.jobType || '',
+      companyIndustry: job.companyIndustry || ''
     };
 
     // Initialize resume tailor
@@ -307,7 +268,7 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
     // Generate tailored resume
     const outputPath = await tailor.generateTailoredResume(
       jobData,
-      'openai', // Default to OpenAI, can be made configurable
+      'openai',
       user.openaiApiKey || undefined,
       tempResumePath,
       path.join(process.cwd(), 'uploads', 'tailored')
@@ -325,5 +286,44 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
   } catch (error) {
     console.error('Error generating tailored resume:', error);
     res.status(500).json({ error: 'Failed to generate tailored resume' });
+  }
+};
+
+export const setPrimaryResume = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const { id } = req.params;
+
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Check if resume exists and belongs to user
+    const resume = await prisma.resume.findFirst({
+      where: { id, userId }
+    });
+
+    if (!resume) {
+      res.status(404).json({ error: 'Resume not found' });
+      return;
+    }
+
+    // Unset any existing primary resume
+    await prisma.resume.updateMany({
+      where: { userId, isPrimary: true },
+      data: { isPrimary: false }
+    });
+
+    // Set the selected resume as primary
+    const updatedResume = await prisma.resume.update({
+      where: { id },
+      data: { isPrimary: true }
+    });
+
+    res.json(updatedResume);
+  } catch (error) {
+    console.error('Error setting primary resume:', error);
+    res.status(500).json({ error: 'Failed to set primary resume' });
   }
 }; 
