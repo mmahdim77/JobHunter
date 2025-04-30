@@ -1,10 +1,8 @@
 import { Request, Response } from 'express';
 import { spawn } from 'child_process';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
 import path from 'path';
 import fs from 'fs';
-
-const prisma = new PrismaClient();
 
 export const generateCoverLetter = async (req: Request, res: Response): Promise<void> => {
     try {
@@ -26,6 +24,11 @@ export const generateCoverLetter = async (req: Request, res: Response): Promise<
 
         if (!primaryResume) {
             res.status(400).json({ error: 'No primary resume found' });
+            return;
+        }
+
+        if (!primaryResume.content) {
+            res.status(400).json({ error: 'Primary resume has no content' });
             return;
         }
 

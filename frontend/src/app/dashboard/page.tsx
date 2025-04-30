@@ -52,7 +52,7 @@ export default function Dashboard() {
     }
 
     // Fetch user's jobs
-    fetch('http://localhost:5001/jobs/my-jobs', {
+    fetch('/api/jobs/my-jobs', {
       headers: {
         'Authorization': `Bearer ${session.user.accessToken}`,
       },
@@ -91,7 +91,7 @@ export default function Dashboard() {
         });
       }, 500);
 
-      const response = await fetch('http://localhost:5001/jobs/search', {
+      const response = await fetch('/api/jobs/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

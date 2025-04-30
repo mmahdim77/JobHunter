@@ -36,7 +36,7 @@ export default function ApiKeysPage() {
 
   const fetchApiKeys = async () => {
     try {
-      const response = await fetch('http://localhost:5001/api-keys', {
+      const response = await fetch('/api/api-keys', {
         headers: {
           'Authorization': `Bearer ${session?.user?.accessToken}`
         }
@@ -62,7 +62,7 @@ export default function ApiKeysPage() {
     setSuccess(null);
 
     try {
-      const response = await fetch('http://localhost:5001/api-keys', {
+      const response = await fetch('/api/api-keys', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

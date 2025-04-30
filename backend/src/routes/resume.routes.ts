@@ -10,15 +10,36 @@ import {
   generateTailoredResume
 } from '../controllers/resume.controller';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const router = Router();
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(process.cwd(), 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: function (_req, _file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (_req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
 const upload = multer({
-  dest: 'uploads/',
+  storage: storage,
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
   },
   fileFilter: (_req, file, cb) => {
-    if (file.mimetype === 'text/plain' || file.mimetype === 'application/x-tex') {
+    const allowedTypes = ['.txt', '.tex'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
       cb(null, true);
     } else {
       cb(new Error('Only .txt and .tex files are allowed'));
@@ -29,11 +50,11 @@ const upload = multer({
 // All routes require authentication
 router.use(authenticateToken);
 
+// Get all resumes
+router.get('/', getResumes);
+
 // Create a new resume
 router.post('/', createResume);
-
-// Get all resumes for the current user
-router.get('/', getResumes);
 
 // Update a resume
 router.put('/:id', updateResume);
@@ -44,10 +65,10 @@ router.delete('/:id', deleteResume);
 // Set a resume as primary
 router.post('/:id/primary', setPrimaryResume);
 
-// Add file upload route
+// Upload a resume file
 router.post('/upload', upload.single('file'), uploadResume);
 
-// Generate tailored resume for a job
+// Generate a tailored resume
 router.post('/tailor/:jobId', generateTailoredResume);
 
 export default router; 

@@ -5,33 +5,6 @@ import path from 'path';
 import { MulterRequest } from '../types/multer';
 import { ResumeTailor } from '../../scripts/resume_tailor';
 
-interface Resume {
-  id: string;
-  title: string;
-  content: string;
-  format: string;
-  isPrimary: boolean;
-  userId: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface JobPost {
-  id: string;
-  title: string;
-  company: string;
-  description: string | null;
-  jobType: string | null;
-  companyIndustry: string | null;
-}
-
-interface UserWithApiKeys {
-  openaiApiKey: string | null;
-  grokApiKey: string | null;
-  deepseekApiKey: string | null;
-  geminiApiKey: string | null;
-}
-
 export const createResume = async (req: Request, res: Response): Promise<void> => {
   try {
     const userId = req.user?.id;
@@ -54,18 +27,36 @@ export const createResume = async (req: Request, res: Response): Promise<void> =
 
     // If this is to be the primary resume, unset any existing primary resume
     if (isPrimary) {
-      await prisma.$executeRaw`
-        UPDATE "Resume" 
-        SET "isPrimary" = false 
-        WHERE "userId" = ${userId} AND "isPrimary" = true
-      `;
+      await prisma.resume.updateMany({
+        where: {
+          userId,
+          isPrimary: true,
+        },
+        data: {
+          isPrimary: false,
+        },
+      });
     }
 
-    const resume = await prisma.$executeRaw`
-      INSERT INTO "Resume" ("title", "content", "format", "isPrimary", "userId")
-      VALUES (${title}, ${content}, ${format}, ${isPrimary}, ${userId})
-      RETURNING *
-    `;
+    // Create a file path for the resume
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'resumes');
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    const fileName = `${title}-${Date.now()}.${format}`;
+    const filePath = path.join(uploadsDir, fileName);
+
+    // Write the content to the file
+    fs.writeFileSync(filePath, content);
+
+    const resume = await prisma.resume.create({
+      data: {
+        userId,
+        content,
+        format,
+        isPrimary: isPrimary || false,
+        fileName,
+        filePath,
+      },
+    });
 
     res.status(201).json(resume);
   } catch (error) {
@@ -82,11 +73,15 @@ export const getResumes = async (req: Request, res: Response): Promise<void> => 
       return;
     }
 
-    const resumes = await prisma.$queryRaw<Resume[]>`
-      SELECT * FROM "Resume" 
-      WHERE "userId" = ${userId}
-      ORDER BY "isPrimary" DESC, "updatedAt" DESC
-    `;
+    const resumes = await prisma.resume.findMany({
+      where: {
+        userId,
+      },
+      orderBy: [
+        { isPrimary: 'desc' },
+        { updatedAt: 'desc' },
+      ],
+    });
 
     res.json(resumes);
   } catch (error) {
@@ -104,40 +99,51 @@ export const updateResume = async (req: Request, res: Response): Promise<void> =
     }
 
     const { id } = req.params;
-    const { title, content, format, isPrimary } = req.body;
+    const { content, format, isPrimary } = req.body;
 
     // Check if resume exists and belongs to user
-    const existingResume = await prisma.$queryRaw<Resume[]>`
-      SELECT * FROM "Resume" 
-      WHERE "id" = ${id} AND "userId" = ${userId}
-      LIMIT 1
-    `;
+    const existingResume = await prisma.resume.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
 
-    if (!existingResume || existingResume.length === 0) {
+    if (!existingResume) {
       res.status(404).json({ error: 'Resume not found' });
       return;
     }
 
     // If this is to be the primary resume, unset any existing primary resume
     if (isPrimary) {
-      await prisma.$executeRaw`
-        UPDATE "Resume" 
-        SET "isPrimary" = false 
-        WHERE "userId" = ${userId} AND "isPrimary" = true
-      `;
+      await prisma.resume.updateMany({
+        where: {
+          userId,
+          isPrimary: true,
+        },
+        data: {
+          isPrimary: false,
+        },
+      });
     }
 
-    const updatedResume = await prisma.$queryRaw<Resume[]>`
-      UPDATE "Resume" 
-      SET "title" = ${title}, 
-          "content" = ${content}, 
-          "format" = ${format}, 
-          "isPrimary" = ${isPrimary}
-      WHERE "id" = ${id}
-      RETURNING *
-    `;
+    // Update the file if content has changed
+    if (content) {
+      fs.writeFileSync(existingResume.filePath, content);
+    }
 
-    res.json(updatedResume[0]);
+    const updatedResume = await prisma.resume.update({
+      where: {
+        id,
+      },
+      data: {
+        content,
+        format,
+        isPrimary: isPrimary || false,
+      },
+    });
+
+    res.json(updatedResume);
   } catch (error) {
     console.error('Error updating resume:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -155,21 +161,23 @@ export const deleteResume = async (req: Request, res: Response): Promise<void> =
     const { id } = req.params;
 
     // Check if resume exists and belongs to user
-    const existingResume = await prisma.$queryRaw<Resume[]>`
-      SELECT * FROM "Resume" 
-      WHERE "id" = ${id} AND "userId" = ${userId}
-      LIMIT 1
-    `;
+    const existingResume = await prisma.resume.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
 
-    if (!existingResume || existingResume.length === 0) {
+    if (!existingResume) {
       res.status(404).json({ error: 'Resume not found' });
       return;
     }
 
-    await prisma.$executeRaw`
-      DELETE FROM "Resume" 
-      WHERE "id" = ${id}
-    `;
+    await prisma.resume.delete({
+      where: {
+        id,
+      },
+    });
 
     res.status(204).send();
   } catch (error) {
@@ -189,33 +197,40 @@ export const setPrimaryResume = async (req: Request, res: Response): Promise<voi
     const { id } = req.params;
 
     // Check if resume exists and belongs to user
-    const existingResume = await prisma.$queryRaw<Resume[]>`
-      SELECT * FROM "Resume" 
-      WHERE "id" = ${id} AND "userId" = ${userId}
-      LIMIT 1
-    `;
+    const existingResume = await prisma.resume.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
 
-    if (!existingResume || existingResume.length === 0) {
+    if (!existingResume) {
       res.status(404).json({ error: 'Resume not found' });
       return;
     }
 
     // Unset any existing primary resume
-    await prisma.$executeRaw`
-      UPDATE "Resume" 
-      SET "isPrimary" = false 
-      WHERE "userId" = ${userId} AND "isPrimary" = true
-    `;
+    await prisma.resume.updateMany({
+      where: {
+        userId,
+        isPrimary: true,
+      },
+      data: {
+        isPrimary: false,
+      },
+    });
 
     // Set the new primary resume
-    const updatedResume = await prisma.$queryRaw<Resume[]>`
-      UPDATE "Resume" 
-      SET "isPrimary" = true 
-      WHERE "id" = ${id}
-      RETURNING *
-    `;
+    const updatedResume = await prisma.resume.update({
+      where: {
+        id,
+      },
+      data: {
+        isPrimary: true,
+      },
+    });
 
-    res.json(updatedResume[0]);
+    res.json(updatedResume);
   } catch (error) {
     console.error('Error setting primary resume:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -236,18 +251,20 @@ export const uploadResume = async (req: MulterRequest, res: Response): Promise<v
     }
 
     const filePath = req.file.path;
-    const originalName = req.file.originalname;
+    const fileName = req.file.originalname;
     const fileContent = fs.readFileSync(filePath, 'utf-8');
+    const format = path.extname(fileName).toLowerCase() === '.tex' ? 'latex' : 'text';
 
     // Create resume record
     const resume = await prisma.resume.create({
       data: {
-        title: originalName as string,
-        content: fileContent as string,
-        format: path.extname(originalName).toLowerCase() === '.tex' ? 'latex' : 'text',
+        userId,
+        content: fileContent,
+        format,
         isPrimary: false,
-        userId: userId
-      }
+        fileName,
+        filePath,
+      },
     });
 
     // Clean up the uploaded file
@@ -271,11 +288,12 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
     }
 
     // Get the primary resume
-    const [primaryResume] = await prisma.$queryRaw<Resume[]>`
-      SELECT * FROM "Resume" 
-      WHERE "userId" = ${userId} AND "isPrimary" = true
-      LIMIT 1
-    `;
+    const primaryResume = await prisma.resume.findFirst({
+      where: {
+        userId,
+        isPrimary: true,
+      },
+    });
 
     if (!primaryResume) {
       res.status(404).json({ error: 'No primary resume found' });
@@ -283,11 +301,11 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
     }
 
     // Get the job details
-    const [job] = await prisma.$queryRaw<JobPost[]>`
-      SELECT * FROM "JobPost" 
-      WHERE "id" = ${jobId}
-      LIMIT 1
-    `;
+    const job = await prisma.jobPost.findUnique({
+      where: {
+        id: jobId,
+      },
+    });
 
     if (!job) {
       res.status(404).json({ error: 'Job not found' });
@@ -295,12 +313,17 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
     }
 
     // Get user's API keys
-    const [user] = await prisma.$queryRaw<UserWithApiKeys[]>`
-      SELECT "openaiApiKey", "grokApiKey", "deepseekApiKey", "geminiApiKey"
-      FROM "User"
-      WHERE "id" = ${userId}
-      LIMIT 1
-    `;
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        openaiApiKey: true,
+        grokApiKey: true,
+        deepseekApiKey: true,
+        geminiApiKey: true,
+      },
+    });
 
     if (!user) {
       res.status(404).json({ error: 'User not found' });
@@ -311,6 +334,12 @@ export const generateTailoredResume = async (req: Request, res: Response): Promi
     const tempDir = path.join(process.cwd(), 'data', 'temp');
     fs.mkdirSync(tempDir, { recursive: true });
     const tempResumePath = path.join(tempDir, `resume_${Date.now()}.tex`);
+    
+    if (!primaryResume.content) {
+      res.status(400).json({ error: 'Primary resume has no content' });
+      return;
+    }
+    
     fs.writeFileSync(tempResumePath, primaryResume.content);
 
     // Prepare job data for the resume tailor

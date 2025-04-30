@@ -39,7 +39,7 @@ export default function ResumesPage() {
 
   const fetchResumes = async () => {
     try {
-      const response = await fetch('http://localhost:5001/resumes', {
+      const response = await fetch('/api/resumes', {
         headers: {
           'Authorization': `Bearer ${session?.user?.accessToken}`
         }
@@ -62,7 +62,7 @@ export default function ResumesPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:5001/resumes', {
+      const response = await fetch('/api/resumes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -98,7 +98,7 @@ export default function ResumesPage() {
       }));
 
       // Then set the selected resume as primary
-      const response = await fetch(`http://localhost:5001/resumes/${id}/primary`, {
+      const response = await fetch(`/api/resumes/${id}/primary`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session?.user?.accessToken}`
@@ -125,7 +125,7 @@ export default function ResumesPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:5001/resumes/${id}`, {
+      const response = await fetch(`/api/resumes/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${session?.user?.accessToken}`
@@ -151,7 +151,7 @@ export default function ResumesPage() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('http://localhost:5001/resumes/upload', {
+      const response = await fetch('/api/resumes/upload', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session?.user?.accessToken}`

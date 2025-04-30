@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 
 interface JwtPayload {
   userId: string;
+  sub?: string;
 }
 
 declare global {
@@ -23,10 +24,20 @@ export const authenticateToken = (req: Request, res: Response, next: NextFunctio
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as JwtPayload;
-    req.user = { id: decoded.userId };
-    next();
+    // Try to verify with JWT_SECRET first
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+      req.user = { id: decoded.userId || decoded.sub! };
+      next();
+      return;
+    } catch (jwtError) {
+      // If that fails, try with NEXTAUTH_SECRET
+      const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET!) as JwtPayload;
+      req.user = { id: decoded.userId || decoded.sub! };
+      next();
+    }
   } catch (error) {
+    console.error('Token verification error:', error);
     res.status(403).json({ error: 'Invalid token' });
     return;
   }

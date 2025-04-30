@@ -51,7 +51,7 @@ export default function JobCard({ job }: JobCardProps) {
       setIsGeneratingResume(true);
       setError(null);
 
-      const response = await fetch(`http://localhost:5001/resumes/tailor/${job.id}`, {
+      const response = await fetch(`http://localhost:5001/api/resumes/tailor/${job.id}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session?.user?.accessToken}`,

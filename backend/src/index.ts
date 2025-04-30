@@ -16,7 +16,7 @@ const prisma = new PrismaClient();
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: [process.env.FRONTEND_URL || 'http://localhost:3000', 'http://localhost:5001'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
@@ -51,12 +51,12 @@ console.log('Mounting auth routes at /auth');
 app.use('/auth', authRoutes);
 
 // Job routes
-console.log('Mounting job routes at /jobs');
-app.use('/jobs', jobRoutes);
+console.log('Mounting job routes at /api/jobs');
+app.use('/api/jobs', jobRoutes);
 
 // Resume routes
-console.log('Mounting resume routes at /resumes');
-app.use('/resumes', resumeRoutes);
+console.log('Mounting resume routes at /api/resumes');
+app.use('/api/resumes', resumeRoutes);
 
 // API key routes
 console.log('Mounting API key routes at /api-keys');
