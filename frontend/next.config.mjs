@@ -4,6 +4,12 @@ const nextConfig = {
   images: {
     domains: ['localhost', 'your-production-domain.com'],
   },
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push('@prisma/client');
+    }
+    return config;
+  },
   async rewrites() {
     return [
       {
