@@ -43,7 +43,6 @@ export async function POST(req: Request) {
       token: {
         email: user.email,
         name: user.name,
-        picture: user.image,
         sub: user.id,
         plan: user.plan,
       },
@@ -56,25 +55,13 @@ export async function POST(req: Request) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 30 * 24 * 60 * 60, // 30 days
     });
 
-    return NextResponse.json(
-      { 
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          plan: user.plan,
-        }
-      },
-      { status: 200 }
-    );
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Signin error:', error);
     return NextResponse.json(
-      { error: 'Something went wrong' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
