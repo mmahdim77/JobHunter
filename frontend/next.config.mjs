@@ -10,6 +10,9 @@ const nextConfig = {
     }
     return config;
   },
+  experimental: {
+    serverComponentsExternalPackages: ['@prisma/client'],
+  },
   async rewrites() {
     return [
       {
