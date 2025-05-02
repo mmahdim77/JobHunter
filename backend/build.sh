@@ -13,11 +13,15 @@ fi
 
 # Activate virtual environment
 echo "Activating virtual environment..."
-source venv/bin/activate
+. venv/bin/activate
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
 pip install --no-cache-dir -r requirements.txt
+
+# Generate Prisma client
+echo "Generating Prisma client..."
+npx prisma generate
 
 # Build the application
 echo "Building application..."
