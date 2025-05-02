@@ -1,1 +1,1 @@
-web: npm start 
+web: source venv/bin/activate && uvicorn src.index:app --host 0.0.0.0 --port $PORT 
