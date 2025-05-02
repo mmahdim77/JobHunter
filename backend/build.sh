@@ -6,10 +6,6 @@ set -e
 # Print commands as they are executed
 set -x
 
-# Install Python first
-echo "Installing Python..."
-apt-get update && apt-get install -y python3 python3-pip python3-venv
-
 # Install Node.js dependencies
 echo "Installing Node.js dependencies..."
 npm install
