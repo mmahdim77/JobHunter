@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+buildCommand = "./build.sh"
+
+[deploy]
+startCommand = "source venv/bin/activate && npm start"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 10 
