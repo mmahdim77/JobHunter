@@ -1,10 +1,6 @@
 #!/bin/bash
 set -e
 
-# Install Node.js dependencies
-echo "Installing Node.js dependencies..."
-npm install
-
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment..."
@@ -23,8 +19,4 @@ pip install --no-cache-dir -r requirements.txt
 echo "Generating Prisma client..."
 npx prisma generate
 
-# Build the application
-echo "Building application..."
-npm run build
-
-echo "Build completed successfully!" 
+echo "Build completed successfully!"
