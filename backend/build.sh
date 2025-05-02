@@ -1,22 +1,14 @@
 #!/bin/bash
-set -e
 
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    python3 -m venv venv
-fi
+# Install Node.js dependencies
+npm install
 
-# Activate virtual environment
-echo "Activating virtual environment..."
-. venv/bin/activate
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate
 
 # Install Python dependencies
-echo "Installing Python dependencies..."
-pip install --no-cache-dir -r requirements.txt
+pip install -r requirements.txt
 
-# Generate Prisma client
-echo "Generating Prisma client..."
-npx prisma generate
-
-echo "Build completed successfully!"
+# Build the application
+npm run build 
