@@ -3,7 +3,7 @@ builder = "nixpacks"
 buildCommand = "npm run build"
 
 [deploy]
-startCommand = "source venv/bin/activate && npm start"
+startCommand = "source venv/bin/activate && node dist/index.js"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 10
 

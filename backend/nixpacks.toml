@@ -15,8 +15,9 @@ cmds = [
 
 [phases.build]
 cmds = [
-    "npm run build"
+    "npm run build",
+    "ls -la dist"  # Debug command to verify dist directory
 ]
 
 [start]
-cmd = "source venv/bin/activate && npm start" 
+cmd = "source venv/bin/activate && node dist/index.js" 
