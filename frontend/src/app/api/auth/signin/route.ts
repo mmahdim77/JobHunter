@@ -44,7 +44,7 @@ export async function POST(req: Request) {
         email: user.email,
         name: user.name,
         sub: user.id,
-        plan: user.plan,
+        plan: user.plan as 'FREE' | 'BASIC' | 'PREMIUM',
       },
       secret: authOptions.secret!,
     });

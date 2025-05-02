@@ -1,6 +1,8 @@
 generator client {
   provider = "prisma-client-js"
   previewFeatures = []
+  enableTracing = false
+  logLevel = "info"
 }
 
 datasource db {
@@ -15,7 +17,7 @@ model User {
   name           String?
   password       String?
   googleId       String?       @unique
-  plan           String        @default("FREE")
+  plan           Plan          @default(FREE)
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   deepseekApiKey String?
@@ -89,4 +91,10 @@ model CoverLetter {
   updatedAt DateTime @updatedAt
   job       JobPost  @relation(fields: [jobId], references: [id])
   user      User     @relation(fields: [userId], references: [id])
+}
+
+enum Plan {
+  FREE
+  BASIC
+  PREMIUM
 }

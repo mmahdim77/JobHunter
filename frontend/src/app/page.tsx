@@ -34,7 +34,10 @@ export default function Home() {
             <h1 className="text-4xl font-bold">Welcome back, {session.user?.name}!</h1>
             <p className="text-xl text-gray-600 mt-2">Manage your account and plan</p>
           </div>
-          <UserInfo user={session.user} />
+          <UserInfo user={{
+            ...session.user,
+            plan: session.user?.plan as 'FREE' | 'BASIC' | 'PREMIUM' | undefined
+          }} />
             <div className="mt-8 text-center">
               <button
                 onClick={() => router.push('/dashboard')}

@@ -2,6 +2,27 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
+// Extend the built-in session types
+declare module "next-auth" {
+  interface User {
+    accessToken?: string;
+    plan?: 'FREE' | 'BASIC' | 'PREMIUM';
+  }
+  interface Session {
+    user: User & {
+      accessToken?: string;
+      plan?: 'FREE' | 'BASIC' | 'PREMIUM';
+    }
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    accessToken?: string;
+    plan?: 'FREE' | 'BASIC' | 'PREMIUM';
+  }
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
@@ -91,8 +112,8 @@ export const authOptions: NextAuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.accessToken = token.accessToken as string;
-        session.user.plan = token.plan as string;
+        session.user.accessToken = token.accessToken;
+        session.user.plan = token.plan;
       }
       return session;
     },
