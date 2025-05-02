@@ -5,4 +5,13 @@ buildCommand = "./build.sh"
 [deploy]
 startCommand = "source venv/bin/activate && npm start"
 restartPolicyType = "on_failure"
-restartPolicyMaxRetries = 10 
+restartPolicyMaxRetries = 10
+
+[phases]
+setup = [
+    "nodejs_20",
+    "python310",
+    "python310Packages.pip",
+    "python310Packages.virtualenv",
+    "nodePackages.npm"
+] 
