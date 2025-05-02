@@ -9,9 +9,8 @@ restartPolicyMaxRetries = 10
 
 [phases]
 setup = [
-    "nodejs_20",
+    "nodejs-20_x",
     "python310",
     "python310Packages.pip",
-    "python310Packages.virtualenv",
-    "nodePackages.npm"
+    "python310Packages.virtualenv"
 ] 
