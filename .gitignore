@@ -51,6 +51,8 @@ ENV/
 env/
 .env/
 .venv/
+env.bak/
+venv.bak/
 pip-log.txt
 pip-delete-this-directory.txt
 
@@ -74,6 +76,8 @@ uploads/
 **/prisma/generated
 **/prisma/libquery_engine-*
 **/prisma/runtime
+**/prisma/migrations/
+**/prisma/dev.db
 
 # Dependencies
 **/node_modules
